@@ -26,7 +26,7 @@ body {
 
 /* Ace Editor font override */
 .ace_editor {
-  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Menlo', monospace !important;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Menlo', monospace;
 }
 
 /* Hide scrollbar for tab bar */

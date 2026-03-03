@@ -32,6 +32,7 @@ export function useEditor({ activeTabIdRef, tabsRef, activeTab, activeTabId, set
                 highlightActiveLine: true,
                 highlightSelectedWord: true,
                 displayIndentGuides: settings.showIndentationGuides,
+                lineHeight: settings.lineHeight,
                 showInvisibles: false,
             });
 
@@ -62,11 +63,14 @@ export function useEditor({ activeTabIdRef, tabsRef, activeTab, activeTabId, set
     // Sync settings dynamically
     useEffect(() => {
         if (!editorInstance) return;
-        editorInstance.setFontSize(`${settings.fontSize}px`);
-        editorInstance.setOption('tabSize', settings.tabSize);
-        editorInstance.setOption('wrap', settings.wordWrap);
-        editorInstance.setOption('fontFamily', settings.fontFamily);
-        editorInstance.setOption('displayIndentGuides', settings.showIndentationGuides);
+        editorInstance.setOptions({
+            fontSize: `${settings.fontSize}px`,
+            tabSize: settings.tabSize,
+            wrap: settings.wordWrap,
+            fontFamily: settings.fontFamily,
+            displayIndentGuides: settings.showIndentationGuides,
+            lineHeight: settings.lineHeight,
+        });
     }, [settings, editorInstance]);
 
     // Sync language mode

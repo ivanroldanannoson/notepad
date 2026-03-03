@@ -28,7 +28,13 @@ export default function SettingsPanel({ isOpen, onClose, settings, updateSetting
                     </button>
                 </div>
 
-                <div className="p-5 space-y-5 max-h-[60vh] overflow-y-auto">
+                <div
+                    className="p-5 space-y-5 max-h-[60vh] overflow-y-auto transition-all duration-200"
+                    style={{
+                        fontFamily: settings.fontFamily,
+                        fontSize: `${Math.max(12, settings.fontSize * 0.9)}px`
+                    }}
+                >
                     {/* Font Size */}
                     <div className="flex items-center justify-between">
                         <div>
@@ -67,6 +73,27 @@ export default function SettingsPanel({ isOpen, onClose, settings, updateSetting
                                     onClick={() => updateSetting('tabSize', s)}
                                 >{s}</button>
                             ))}
+                        </div>
+                    </div>
+
+                    <div className={`h-px ${isDark ? 'bg-white/5' : 'bg-gray-100'}`} />
+
+                    {/* Line Height */}
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <div className={`text-[13px] font-semibold ${isDark ? 'text-white' : 'text-gray-800'}`}>Line Height</div>
+                            <div className={`text-[11px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Vertical spacing between lines</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => updateSetting('lineHeight', Math.max(parseFloat((settings.lineHeight - 0.1).toFixed(1)), 1.0))}
+                                className={`p-1.5 rounded-lg border ${isDark ? 'border-white/10 hover:bg-white/5 text-gray-400' : 'border-gray-200 hover:bg-gray-50 text-gray-500'}`}
+                            ><Minus size={14} /></button>
+                            <span className={`text-[14px] font-bold w-10 text-center ${isDark ? 'text-white' : 'text-gray-800'}`}>{settings.lineHeight.toFixed(1)}</span>
+                            <button
+                                onClick={() => updateSetting('lineHeight', Math.min(parseFloat((settings.lineHeight + 0.1).toFixed(1)), 2.5))}
+                                className={`p-1.5 rounded-lg border ${isDark ? 'border-white/10 hover:bg-white/5 text-gray-400' : 'border-gray-200 hover:bg-gray-50 text-gray-500'}`}
+                            ><Plus size={14} /></button>
                         </div>
                     </div>
 

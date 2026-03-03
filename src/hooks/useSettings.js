@@ -10,6 +10,7 @@ const DEFAULT_SETTINGS = {
     showMinimap: false,
     autoSave: false,
     showIndentationGuides: true,
+    lineHeight: 1.5,
 };
 
 /**
