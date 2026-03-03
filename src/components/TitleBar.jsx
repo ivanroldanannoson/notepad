@@ -1,5 +1,5 @@
 import React from 'react';
-import { Code2, Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Github } from 'lucide-react';
 import { languages } from '../constants/languages';
 
 export function MenuDropdown({ title, id, activeMenu, setActiveMenu, isDark, children }) {
@@ -60,8 +60,8 @@ export default function TitleBar({
             }`}>
             <div className="flex items-center gap-7">
                 <div className="flex items-center gap-2.5">
-                    <div className={`p-1.5 rounded-lg ${isDark ? 'bg-blue-500' : 'bg-gradient-to-br from-blue-500 to-indigo-600'}`}>
-                        <Code2 size={14} className="text-white" strokeWidth={2.5} />
+                    <div className="w-6 h-6 rounded-lg overflow-hidden flex items-center justify-center">
+                        <img src="/logo.png" alt="Notepad IDE Logo" className="w-full h-full object-contain" />
                     </div>
                     <span className="text-[13px] font-bold tracking-tight">Notepad IDE</span>
                 </div>
@@ -133,14 +133,26 @@ export default function TitleBar({
                 </div>
             </div>
 
-            <button
-                onClick={toggleTheme}
-                className={`p-2 rounded-lg transition-all duration-200 ${isDark ? 'text-gray-400 hover:text-yellow-400 hover:bg-white/5' : 'text-gray-400 hover:text-gray-600 hover:bg-black/[0.04]'
-                    }`}
-                title={`Switch to ${isDark ? 'Light' : 'Dark'} Mode`}
-            >
-                {isDark ? <Sun size={16} strokeWidth={2} /> : <Moon size={16} strokeWidth={2} />}
-            </button>
+            <div className="flex items-center gap-1.5">
+                <a
+                    href="https://github.com/ivanroldanannoson/notepad"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`p-2 rounded-lg transition-all duration-200 ${isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-900 hover:bg-black/[0.04]'
+                        }`}
+                    title="View on GitHub"
+                >
+                    <Github size={16} strokeWidth={2} />
+                </a>
+                <button
+                    onClick={toggleTheme}
+                    className={`p-2 rounded-lg transition-all duration-200 ${isDark ? 'text-gray-400 hover:text-yellow-400 hover:bg-white/5' : 'text-gray-400 hover:text-gray-600 hover:bg-black/[0.04]'
+                        }`}
+                    title={`Switch to ${isDark ? 'Light' : 'Dark'} Mode`}
+                >
+                    {isDark ? <Sun size={16} strokeWidth={2} /> : <Moon size={16} strokeWidth={2} />}
+                </button>
+            </div>
         </div>
     );
 }
