@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Settings, FileText, ChevronDown } from 'lucide-react';
+import { X, Settings, FileText, ChevronDown, Sun, Moon, Plus, Hash } from 'lucide-react';
 
 // --- Utility: Dynamic Script Loader ---
 const loadScript = (src) => {
@@ -17,11 +17,25 @@ const loadScript = (src) => {
 };
 
 export default function App() {
-  const [filename, setFilename] = useState('Untitled.txt');
-  const [language, setLanguage] = useState('plaintext');
+  // --- Persistent State Initialization ---
+  const [tabs, setTabs] = useState(() => {
+    const saved = localStorage.getItem('notepad_tabs');
+    try {
+      return saved ? JSON.parse(saved) : [{ id: Date.now().toString(), filename: 'Untitled.txt', language: 'plaintext', content: '' }];
+    } catch {
+      return [{ id: Date.now().toString(), filename: 'Untitled.txt', language: 'plaintext', content: '' }];
+    }
+  });
+
+  const [activeTabId, setActiveTabId] = useState(() => {
+    return localStorage.getItem('notepad_active_tab_id') || (tabs[0] ? tabs[0].id : '');
+  });
+
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('notepad_theme') || 'light';
+  });
+
   const [cursorPos, setCursorPos] = useState({ ln: 1, col: 1 });
-  
-  // UI & Editor State
   const [activeMenu, setActiveMenu] = useState(null);
   const [dialogConfig, setDialogConfig] = useState(null);
   const [isFormatting, setIsFormatting] = useState(false);
@@ -30,6 +44,8 @@ export default function App() {
   const editorContainerRef = useRef(null);
   const fileInputRef = useRef(null);
   const menuRef = useRef(null);
+
+  const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
 
   const languages = [
     { id: 'plaintext', name: 'Plain Text', ext: '.txt', aceMode: 'text' },
@@ -48,6 +64,20 @@ export default function App() {
     { id: 'bat', name: 'Batch', ext: '.bat', aceMode: 'batchfile' },
   ];
 
+  // --- Persistence Side Effects ---
+  useEffect(() => {
+    localStorage.setItem('notepad_tabs', JSON.stringify(tabs));
+  }, [tabs]);
+
+  useEffect(() => {
+    localStorage.setItem('notepad_active_tab_id', activeTabId || '');
+  }, [activeTabId]);
+
+  useEffect(() => {
+    localStorage.setItem('notepad_theme', theme);
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+  }, [theme]);
+
   // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -64,26 +94,38 @@ export default function App() {
       if (!window.ace) {
         await loadScript('https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.3/ace.js');
       }
-      
-      // Critical: Set base path so Ace can load its theme, worker, and mode extensions dynamically
+
       window.ace.config.set('basePath', 'https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.3/');
-      
+
       editor = window.ace.edit(editorContainerRef.current);
-      editor.setTheme("ace/theme/chrome"); // Light theme similar to Windows Notepad
-      editor.session.setMode("ace/mode/text");
-      
+      editor.setTheme(theme === 'dark' ? "ace/theme/tomorrow_night" : "ace/theme/chrome");
+
       editor.setOptions({
         fontSize: "14px",
-        fontFamily: "monospace",
+        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
         showPrintMargin: false,
         wrap: true,
-        showLineNumbers: true, // Enabled for IDE feel
+        showLineNumbers: true,
         showGutter: true,
         tabSize: 4,
         useSoftTabs: true
       });
 
-      // Track cursor for status bar
+      // Restore active tab content
+      if (activeTab) {
+        editor.setValue(activeTab.content, -1);
+      }
+
+      // Track changes and save to tabs state
+      editor.on('change', () => {
+        const val = editor.getValue();
+        setTabs(prev => {
+          const currentTab = prev.find(t => t.id === activeTabId);
+          if (currentTab && currentTab.content === val) return prev;
+          return prev.map(t => t.id === activeTabId ? { ...t, content: val } : t);
+        });
+      });
+
       editor.selection.on('changeCursor', () => {
         const pos = editor.getCursorPosition();
         setCursorPos({ ln: pos.row + 1, col: pos.column + 1 });
@@ -96,36 +138,68 @@ export default function App() {
     return () => { if (editor) editor.destroy(); };
   }, []);
 
-  // Sync Language -> Ace Mode
+  // Sync Language & Theme
   useEffect(() => {
-    if (editorInstance) {
-      const langDef = languages.find(l => l.id === language);
+    if (editorInstance && activeTab) {
+      const langDef = languages.find(l => l.id === activeTab.language);
       editorInstance.session.setMode(`ace/mode/${langDef ? langDef.aceMode : 'text'}`);
     }
-  }, [language, editorInstance]);
+  }, [activeTab?.language, editorInstance]);
 
-  // --- File Operations ---
-  const handleNew = () => {
-    if (editorInstance) editorInstance.setValue('', -1);
-    setFilename('Untitled.txt');
-    setLanguage('plaintext');
+  useEffect(() => {
+    if (editorInstance) {
+      editorInstance.setTheme(theme === 'dark' ? "ace/theme/tomorrow_night" : "ace/theme/chrome");
+    }
+  }, [theme, editorInstance]);
+
+  // Sync Editor Content when switching tabs
+  useEffect(() => {
+    if (editorInstance && activeTab && editorInstance.getValue() !== activeTab.content) {
+      editorInstance.setValue(activeTab.content, -1);
+    }
+  }, [activeTabId, editorInstance]);
+
+  // --- Tab Operations ---
+  const handleNewTab = () => {
+    const newId = Date.now().toString();
+    setTabs(prev => [...prev, { id: newId, filename: 'Untitled.txt', language: 'plaintext', content: '' }]);
+    setActiveTabId(newId);
     setActiveMenu(null);
   };
 
+  const closeTab = (id, e) => {
+    if (e) e.stopPropagation();
+    if (tabs.length === 1) {
+      const newId = Date.now().toString();
+      setTabs([{ id: newId, filename: 'Untitled.txt', language: 'plaintext', content: '' }]);
+      setActiveTabId(newId);
+      return;
+    }
+    const newTabs = tabs.filter(t => t.id !== id);
+    setTabs(newTabs);
+    if (activeTabId === id) {
+      setActiveTabId(newTabs[newTabs.length - 1].id);
+    }
+  };
+
+  // --- File Operations ---
   const handleOpen = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      if (editorInstance) {
-        editorInstance.setValue(event.target.result, -1);
-      }
-      setFilename(file.name);
-      
       const ext = file.name.substring(file.name.lastIndexOf('.'));
       const foundLang = languages.find(l => l.ext === ext);
-      setLanguage(foundLang ? foundLang.id : 'plaintext');
+      const newId = Date.now().toString();
+
+      setTabs(prev => [...prev, {
+        id: newId,
+        filename: file.name,
+        language: foundLang ? foundLang.id : 'plaintext',
+        content: event.target.result
+      }]);
+      setActiveTabId(newId);
     };
     reader.readAsText(file);
     setActiveMenu(null);
@@ -145,51 +219,51 @@ export default function App() {
   };
 
   const handleSave = useCallback(() => {
-    if (filename.startsWith('Untitled')) {
+    if (!activeTab) return;
+    if (activeTab.filename.startsWith('Untitled')) {
       handleSaveAs();
     } else {
-      const code = editorInstance ? editorInstance.getValue() : '';
-      triggerDownload(filename, code);
+      triggerDownload(activeTab.filename, activeTab.content);
       setActiveMenu(null);
     }
-  }, [filename, editorInstance]);
+  }, [activeTab]);
 
   const handleSaveAs = () => {
+    if (!activeTab) return;
     setActiveMenu(null);
-    let defaultName = filename;
-    const currentLang = languages.find(l => l.id === language);
+    let defaultName = activeTab.filename;
+    const currentLang = languages.find(l => l.id === activeTab.language);
     if (currentLang) {
-      const lastDot = filename.lastIndexOf('.');
-      const baseName = lastDot !== -1 ? filename.substring(0, lastDot) : filename;
+      const lastDot = activeTab.filename.lastIndexOf('.');
+      const baseName = lastDot !== -1 ? activeTab.filename.substring(0, lastDot) : activeTab.filename;
       defaultName = `${baseName}${currentLang.ext}`;
     }
     setDialogConfig({ type: 'saveAs', inputName: defaultName });
   };
 
   const executeSaveAs = (newName) => {
-    if (!newName.trim()) return;
-    
+    if (!newName.trim() || !activeTab) return;
+
     let finalName = newName.trim();
-    const currentLang = languages.find(l => l.id === language);
+    const currentLang = languages.find(l => l.id === activeTab.language);
     if (currentLang && !finalName.includes('.')) {
       finalName += currentLang.ext;
     }
 
-    setFilename(finalName);
-    const code = editorInstance ? editorInstance.getValue() : '';
-    triggerDownload(finalName, code);
+    setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, filename: finalName } : t));
+    triggerDownload(finalName, activeTab.content);
     setDialogConfig(null);
   };
 
   // --- Formatting ---
   const handleFormat = useCallback(async () => {
     setActiveMenu(null);
-    if (!editorInstance) return;
+    if (!editorInstance || !activeTab) return;
 
     const currentCode = editorInstance.getValue();
     if (!currentCode.trim()) return;
 
-    if (language === 'plaintext') {
+    if (activeTab.language === 'plaintext') {
       setDialogConfig({ type: 'alert', message: 'Formatting is not available for Plain Text. Please select a programming language.' });
       return;
     }
@@ -198,23 +272,19 @@ export default function App() {
     try {
       let formatted = currentCode;
 
-      // 1. Native JSON Beautifier
-      if (language === 'json') {
+      if (activeTab.language === 'json') {
         const parsed = JSON.parse(currentCode);
         formatted = JSON.stringify(parsed, null, 4);
-      } 
-      // 2. Dedicated SQL Beautifier
-      else if (language === 'sql') {
+      }
+      else if (activeTab.language === 'sql') {
         await loadScript('https://unpkg.com/sql-formatter@15.0.2/dist/sql-formatter.min.js');
         formatted = window.sqlFormatter.format(currentCode, { language: 'sql', tabWidth: 4 });
-      } 
-      // 3. C-Style Languages (Java, C++, C#, PHP) using JS-Beautify
-      else if (['java', 'cpp', 'csharp', 'php'].includes(language)) {
+      }
+      else if (['java', 'cpp', 'csharp', 'php'].includes(activeTab.language)) {
         await loadScript('https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.14.11/beautify.min.js');
         formatted = window.js_beautify(currentCode, { indent_size: 4, brace_style: "collapse" });
-      } 
-      // 4. Custom Batch Script Formatter
-      else if (language === 'bat') {
+      }
+      else if (activeTab.language === 'bat') {
         let indentLevel = 0;
         formatted = currentCode.split('\n').map(line => {
           let trimmed = line.trim();
@@ -223,31 +293,29 @@ export default function App() {
           if (trimmed.endsWith('(')) indentLevel++;
           return indentedLine;
         }).join('\n');
-      } 
-      // 5. Custom Python Cleanup (Whitespace strict language)
-      else if (language === 'python') {
+      }
+      else if (activeTab.language === 'python') {
         formatted = currentCode.split('\n').map(line => line.trimEnd()).join('\n');
-      } 
-      // 6. Prettier for Web Languages (JS, TS, HTML, CSS, Markdown)
+      }
       else {
         await loadScript('https://unpkg.com/prettier@3.2.5/standalone.js');
         let plugins = [];
         let parser = '';
 
-        if (['javascript', 'typescript'].includes(language)) {
+        if (['javascript', 'typescript'].includes(activeTab.language)) {
           await loadScript('https://unpkg.com/prettier@3.2.5/plugins/estree.js');
           await loadScript('https://unpkg.com/prettier@3.2.5/plugins/babel.js');
           plugins = [window.prettierPlugins.estree, window.prettierPlugins.babel];
-          parser = language === 'typescript' ? 'babel-ts' : 'babel';
-        } else if (language === 'html') {
+          parser = activeTab.language === 'typescript' ? 'babel-ts' : 'babel';
+        } else if (activeTab.language === 'html') {
           await loadScript('https://unpkg.com/prettier@3.2.5/plugins/html.js');
           plugins = [window.prettierPlugins.html];
           parser = 'html';
-        } else if (language === 'css') {
+        } else if (activeTab.language === 'css') {
           await loadScript('https://unpkg.com/prettier@3.2.5/plugins/postcss.js');
           plugins = [window.prettierPlugins.postcss];
           parser = 'css';
-        } else if (language === 'markdown') {
+        } else if (activeTab.language === 'markdown') {
           await loadScript('https://unpkg.com/prettier@3.2.5/plugins/markdown.js');
           plugins = [window.prettierPlugins.markdown];
           parser = 'markdown';
@@ -261,40 +329,41 @@ export default function App() {
         });
       }
 
-      // Apply formatting back to editor
-      const cursorPos = editorInstance.getCursorPosition();
       editorInstance.setValue(formatted, -1);
-      editorInstance.clearSelection();
-      editorInstance.moveCursorToPosition(cursorPos);
-      
+
     } catch (error) {
       const errorMsg = error.message ? error.message.split('\n')[0] : 'Ensure there are no syntax errors.';
       setDialogConfig({ type: 'alert', message: `Formatting Error: ${errorMsg}` });
     } finally {
       setIsFormatting(false);
     }
-  }, [language, editorInstance]);
+  }, [activeTab, editorInstance]);
 
-  // Tie keyboard shortcuts dynamically directly to Ace Editor commands
+  // Keyboard Shortcuts
   useEffect(() => {
     if (editorInstance) {
       editorInstance.commands.addCommand({
         name: 'save',
-        bindKey: {win: 'Ctrl-S',  mac: 'Command-S'},
+        bindKey: { win: 'Ctrl-S', mac: 'Command-S' },
         exec: () => handleSave()
       });
       editorInstance.commands.addCommand({
         name: 'open',
-        bindKey: {win: 'Ctrl-O',  mac: 'Command-O'},
+        bindKey: { win: 'Ctrl-O', mac: 'Command-O' },
         exec: () => fileInputRef.current.click()
       });
       editorInstance.commands.addCommand({
         name: 'format',
-        bindKey: {win: 'Shift-Alt-F',  mac: 'Shift-Option-F'},
+        bindKey: { win: 'Shift-Alt-F', mac: 'Shift-Option-F' },
         exec: () => handleFormat()
       });
+      editorInstance.commands.addCommand({
+        name: 'newTab',
+        bindKey: { win: 'Ctrl-T', mac: 'Command-T' },
+        exec: () => handleNewTab()
+      });
     }
-  }, [editorInstance, handleSave, handleFormat]);
+  }, [editorInstance, handleSave, handleFormat, handleNewTab]);
 
   // --- UI Components ---
   const MenuDropdown = ({ title, id, children }) => {
@@ -302,13 +371,16 @@ export default function App() {
     return (
       <div className="relative">
         <button
-          className={`px-3 py-1 text-sm rounded hover:bg-gray-200 transition-colors ${isActive ? 'bg-gray-200 shadow-inner' : ''}`}
+          className={`px-3 py-1 text-sm font-medium rounded transition-all duration-200 ${isActive
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800'
+            }`}
           onClick={() => setActiveMenu(isActive ? null : id)}
         >
           {title}
         </button>
         {isActive && (
-          <div className="absolute top-full left-0 mt-1 w-48 bg-[#f2f2f2] border border-gray-300 shadow-lg rounded-md py-1 z-50 flex flex-col max-h-[60vh] overflow-y-auto custom-scrollbar">
+          <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl rounded-lg py-1.5 z-[60] flex flex-col max-h-[70vh] overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-200">
             {children}
           </div>
         )}
@@ -318,160 +390,198 @@ export default function App() {
 
   const MenuItem = ({ label, shortcut, onClick, hasSeparator }) => (
     <>
-      <button 
-        className="w-full text-left px-4 py-1.5 text-sm hover:bg-blue-100 flex justify-between items-center"
+      <button
+        className="w-full dark:hover:bg-blue-700 text-left px-4 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-blue-600 hover:text-white flex justify-between items-center transition-colors group"
         onClick={onClick}
       >
         <span>{label}</span>
-        {shortcut && <span className="text-gray-500 text-xs">{shortcut}</span>}
+        {shortcut && (
+          <span className="text-gray-400 group-hover:text-blue-100 text-[10px] font-mono tracking-wider ml-4">
+            {shortcut}
+          </span>
+        )}
       </button>
-      {hasSeparator && <div className="h-px bg-gray-300 my-1 mx-2" />}
+      {hasSeparator && <div className="h-px bg-gray-100 dark:bg-gray-800 my-1 mx-2" />}
     </>
   );
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 md:p-8 flex items-center justify-center font-sans">
-      
-      {/* Hidden File Input for Open functionality */}
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        onChange={handleOpen} 
-        className="hidden" 
-        accept=".txt,.js,.ts,.py,.java,.cs,.cpp,.php,.sql,.html,.css,.json,.md,.bat" 
+    <div className={`h-screen w-screen flex flex-col overflow-hidden font-sans selection:bg-blue-100 dark:selection:bg-blue-900 ${theme === 'dark' ? 'dark bg-gray-950 text-gray-100' : 'bg-white text-gray-800'}`}>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleOpen}
+        className="hidden"
+        accept=".txt,.js,.ts,.py,.java,.cs,.cpp,.php,.sql,.html,.css,.json,.md,.bat"
       />
 
-      {/* Main Notepad Window */}
-      <div className="w-full max-w-6xl h-[85vh] bg-white rounded-xl shadow-2xl border border-gray-300 flex flex-col overflow-hidden">
-        
-        {/* Title Bar */}
-        <div className="h-10 bg-[#f9f9f9] border-b border-gray-200 flex items-center justify-between px-3 select-none">
-          <div className="flex items-center space-x-3 text-sm text-gray-700">
-            <FileText size={16} className="text-blue-500" />
-            <span className="font-medium">{filename} - Notepad IDE</span>
+      <div className="flex-1 flex flex-col relative">
+
+        {/* Top bar */}
+        <div className="h-12 bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 flex items-center px-4 justify-between shrink-0 z-40">
+          <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-2">
+              <div className="bg-blue-600 p-1 rounded">
+                <FileText size={14} className="text-white" />
+              </div>
+              <span className="text-sm font-semibold tracking-tight">
+                Notepad IDE
+              </span>
+            </div>
+
+            <div className="flex items-center space-x-1" ref={menuRef}>
+              <MenuDropdown title="File" id="file">
+                <MenuItem label="New Tab" shortcut="Ctrl+T" onClick={handleNewTab} />
+                <MenuItem label="Open..." shortcut="Ctrl+O" onClick={() => { fileInputRef.current.click(); setActiveMenu(null); }} />
+                <MenuItem label="Save" shortcut="Ctrl+S" onClick={handleSave} />
+                <MenuItem label="Save As..." shortcut="Ctrl+Shift+S" onClick={handleSaveAs} hasSeparator />
+                <MenuItem label="Exit" onClick={() => setDialogConfig({ type: 'alert', message: 'Simply close the tab!' })} />
+              </MenuDropdown>
+
+              <MenuDropdown title="Edit" id="edit">
+                <MenuItem label="Auto Format" shortcut="Shift+Alt+F" onClick={handleFormat} hasSeparator />
+                <MenuItem label="Select All" shortcut="Ctrl+A" onClick={() => { if (editorInstance) { editorInstance.selectAll(); setActiveMenu(null); } }} />
+              </MenuDropdown>
+
+              <MenuDropdown title="Language" id="language">
+                {languages.map((lang) => (
+                  <MenuItem
+                    key={lang.id}
+                    label={lang.name}
+                    shortcut={activeTab?.language === lang.id ? '✓' : ''}
+                    onClick={() => {
+                      setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, language: lang.id } : t));
+                      setActiveMenu(null);
+                    }}
+                  />
+                ))}
+              </MenuDropdown>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+              className="p-2 rounded-lg text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+              title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
+            >
+              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+            </button>
           </div>
         </div>
 
-        {/* Menu Bar */}
-        <div className="px-2 py-1 bg-[#f9f9f9] border-b border-gray-200 flex items-center space-x-1" ref={menuRef}>
-          <MenuDropdown title="File" id="file">
-            <MenuItem label="New" shortcut="Ctrl+N" onClick={handleNew} />
-            <MenuItem label="Open..." shortcut="Ctrl+O" onClick={() => { fileInputRef.current.click(); setActiveMenu(null); }} />
-            <MenuItem label="Save" shortcut="Ctrl+S" onClick={handleSave} />
-            <MenuItem label="Save As..." shortcut="Ctrl+Shift+S" onClick={handleSaveAs} hasSeparator />
-            <MenuItem label="Exit" onClick={() => setDialogConfig({ type: 'alert', message: 'You cannot exit a web application this way. Simply close the tab!' })} />
-          </MenuDropdown>
-
-          <MenuDropdown title="Edit" id="edit">
-            <MenuItem label="Auto Format Code" shortcut="Shift+Alt+F" onClick={handleFormat} hasSeparator />
-            <MenuItem label="Select All" shortcut="Ctrl+A" onClick={() => { if(editorInstance) { editorInstance.selectAll(); setActiveMenu(null); } }} />
-          </MenuDropdown>
-
-          <MenuDropdown title="Language" id="language">
-            {languages.map((lang) => (
-              <MenuItem 
-                key={lang.id} 
-                label={`${lang.name} ${language === lang.id ? '✓' : ''}`} 
-                onClick={() => { 
-                  setLanguage(lang.id); 
-                  setActiveMenu(null); 
-                  if (filename.startsWith('Untitled')) {
-                    setFilename(`Untitled${lang.ext}`);
-                  }
-                }} 
-              />
-            ))}
-          </MenuDropdown>
+        {/* Tab Bar */}
+        <div className="h-10 bg-gray-100/50 dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 flex items-center px-1 space-x-1 overflow-x-auto no-scrollbar shrink-0">
+          {tabs.map(tab => (
+            <div
+              key={tab.id}
+              onClick={() => setActiveTabId(tab.id)}
+              className={`group flex items-center space-x-2 h-8 px-3 rounded-md cursor-pointer transition-all duration-200 min-w-[120px] max-w-[200px] border ${activeTabId === tab.id
+                  ? 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 shadow-sm text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800'
+                }`}
+            >
+              <FileText size={14} className={activeTabId === tab.id ? 'text-blue-500' : 'text-gray-400'} />
+              <span className="text-xs font-medium truncate flex-1">{tab.filename}</span>
+              <button
+                onClick={(e) => closeTab(tab.id, e)}
+                className="opacity-0 group-hover:opacity-100 hover:bg-gray-300 dark:hover:bg-gray-700 rounded p-0.5 transition-all"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={handleNewTab}
+            className="p-1.5 rounded-md text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors ml-1"
+          >
+            <Plus size={16} />
+          </button>
         </div>
 
-        {/* Loading Overlay for Formatting */}
+        {/* Loading Overlay */}
         {isFormatting && (
-          <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-40 backdrop-blur-sm">
-            <div className="bg-white border border-gray-300 shadow-lg rounded-lg p-4 flex items-center space-x-3">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-              <span className="text-sm font-medium text-gray-700">Formatting code...</span>
+          <div className="absolute inset-0 bg-white/50 dark:bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-2xl rounded-xl p-6 flex flex-col items-center space-y-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+              <span className="text-sm font-semibold">Formatting Code...</span>
             </div>
           </div>
         )}
 
-        {/* Ace Editor Area Container */}
-        <div className="flex-1 relative bg-white">
+        {/* Editor Area */}
+        <div className="flex-1 relative">
           <div ref={editorContainerRef} className="absolute inset-0 z-0"></div>
         </div>
 
         {/* Status Bar */}
-        <div className="h-8 bg-[#f3f3f3] border-t border-gray-200 flex items-center justify-between px-4 text-xs text-gray-600 select-none">
-          <div className="flex space-x-6">
+        <div className="h-7 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between px-6 text-[11px] font-medium text-gray-500 uppercase tracking-widest select-none shrink-0">
+          <div className="flex space-x-8 items-center">
+            <div className="flex items-center space-x-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+              <span>Ready</span>
+            </div>
             <span>Ln {cursorPos.ln}, Col {cursorPos.col}</span>
           </div>
-          <div className="flex space-x-6">
-            <span className="capitalize">{languages.find(l => l.id === language)?.name || 'Plain Text'}</span>
+          <div className="flex space-x-6 items-center">
+            <div className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded">
+              {languages.find(l => l.id === activeTab?.language)?.name || 'Plain Text'}
+            </div>
+            <span>UTF-8</span>
           </div>
         </div>
       </div>
 
-      {/* --- Modals / Dialogs --- */}
+      {/* Modals */}
       {dialogConfig && (
-        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
-          <div className="bg-[#f0f0f0] border border-gray-400 shadow-2xl rounded-md w-96 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
-            
-            <div className="h-8 bg-white border-b border-gray-300 flex items-center justify-between px-3 select-none">
-              <span className="text-xs font-medium text-gray-700">
-                {dialogConfig.type === 'saveAs' ? 'Save As' : 'Notepad Message'}
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-900 shadow-2xl rounded-2xl w-full max-sm overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            <div className="h-12 bg-gray-50 dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between px-5">
+              <span className="text-sm font-bold">
+                {dialogConfig.type === 'saveAs' ? 'Save As' : 'Notepad IDE'}
               </span>
-              <button className="hover:bg-red-500 hover:text-white p-1 rounded transition-colors" onClick={() => setDialogConfig(null)}>
-                <X size={14} />
+              <button className="text-gray-400 hover:text-red-500 transition-colors" onClick={() => setDialogConfig(null)}>
+                <X size={18} />
               </button>
             </div>
-
-            <div className="p-5 flex-1 bg-[#f0f0f0]">
+            <div className="p-6 flex-1">
               {dialogConfig.type === 'saveAs' ? (
-                <div className="flex flex-col space-y-3">
-                  <label className="text-sm text-gray-700">File name:</label>
-                  <input 
-                    type="text" 
-                    autoFocus
-                    className="border border-gray-400 px-2 py-1 text-sm outline-none focus:border-blue-500"
-                    defaultValue={dialogConfig.inputName}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') executeSaveAs(e.target.value);
-                      if (e.key === 'Escape') setDialogConfig(null);
-                    }}
-                    id="saveAsInput"
-                  />
-                  <div className="text-xs text-gray-500 mt-2">
-                    Files will be saved directly to your local downloads folder.
+                <div className="flex flex-col space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">File Name</label>
+                    <input
+                      type="text"
+                      autoFocus
+                      className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-2.5 text-sm rounded-lg outline-none focus:border-blue-500 transition-all text-gray-800 dark:text-gray-100"
+                      defaultValue={dialogConfig.inputName}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') executeSaveAs(e.target.value);
+                        if (e.key === 'Escape') setDialogConfig(null);
+                      }}
+                      id="saveAsInput"
+                    />
                   </div>
                 </div>
               ) : (
-                <div className="text-sm text-gray-800">
+                <p className="text-sm font-medium">
                   {dialogConfig.message}
-                </div>
+                </p>
               )}
             </div>
-
-            <div className="p-3 bg-[#f0f0f0] border-t border-gray-300 flex justify-end space-x-2">
-              {dialogConfig.type === 'saveAs' ? (
-                <>
-                  <button 
-                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded shadow-sm transition-colors"
-                    onClick={() => executeSaveAs(document.getElementById('saveAsInput').value)}
-                  >
-                    Save
-                  </button>
-                  <button 
-                    className="px-4 py-1.5 bg-white hover:bg-gray-100 text-gray-800 border border-gray-300 text-sm rounded shadow-sm transition-colors"
-                    onClick={() => setDialogConfig(null)}
-                  >
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <button 
-                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded shadow-sm transition-colors"
+            <div className="p-5 bg-gray-50 dark:bg-gray-950 flex justify-end space-x-3">
+              <button
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-200 dark:shadow-none transition-all"
+                onClick={() => dialogConfig.type === 'saveAs' ? executeSaveAs(document.getElementById('saveAsInput').value) : setDialogConfig(null)}
+              >
+                {dialogConfig.type === 'saveAs' ? 'Save File' : 'Confirm'}
+              </button>
+              {dialogConfig.type === 'saveAs' && (
+                <button
+                  className="px-6 py-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 text-sm font-bold rounded-xl transition-all"
                   onClick={() => setDialogConfig(null)}
                 >
-                  OK
+                  Cancel
                 </button>
               )}
             </div>
