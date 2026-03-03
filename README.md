@@ -2,7 +2,7 @@
 
 A modern, high-performance, and privacy-focused code editor built for the web. Designed for developers who value speed, clean aesthetics, and complete data ownership.
 
-![Notepad IDE Preview](https://raw.githubusercontent.com/ivanroldannoson/notepad/main/public/logo.png)
+![Notepad IDE Preview](public/logo.png)
 
 ## 🎨 Premium Experience
 

@@ -61,7 +61,7 @@ export default function TitleBar({
             <div className="flex items-center gap-7">
                 <div className="flex items-center gap-2.5">
                     <div className="w-6 h-6 rounded-lg overflow-hidden flex items-center justify-center">
-                        <img src="/logo.png" alt="Notepad IDE Logo" className="w-full h-full object-contain" />
+                        <img src="logo.png" alt="Notepad IDE Logo" className="w-full h-full object-contain" />
                     </div>
                     <span className="text-[13px] font-bold tracking-tight">Notepad IDE</span>
                 </div>
