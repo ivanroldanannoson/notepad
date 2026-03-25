@@ -22,7 +22,9 @@ import GlobalSearch from './components/GlobalSearch';
 
 // Constants & Utils
 import { languages, ACCEPTED_EXTENSIONS } from './constants/languages';
+import { classifyFile } from './constants/languages';
 import { triggerDownload, loadScript } from './utils/helpers';
+import DropOverlay from './components/DropOverlay';
 
 export default function App() {
   const workspace = useWorkspace();
@@ -33,7 +35,7 @@ export default function App() {
     toggleTheme,
     activeTabIdRef, tabsRef,
     addTab, closeTab, closeOtherTabs, closeAllTabs,
-    renameTab, updateActiveTab, markSaved, detectLanguage,
+    renameTab, updateActiveTab, markSaved, setFileHandle, detectLanguage,
     reorderTabs, recentFiles, addRecentFile,
     sidebarOpen, setSidebarOpen,
     zenMode, setZenMode,
@@ -51,6 +53,12 @@ export default function App() {
   const [showPreview, setShowPreview] = useState(false);
   const [showDiffView, setShowDiffView] = useState(false);
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+
+  // Drag-and-drop state
+  const [dragState, setDragState] = useState(null); // null | 'supported' | 'unsupported'
+  const [dragToast, setDragToast] = useState(null); // { message, category } | null
+  const dragCounterRef = useRef(0); // tracks nested dragenter/dragleave events
+  const dragToastTimerRef = useRef(null);
 
   const fileInputRef = useRef(null);
   const menuRef = useRef(null);
@@ -94,12 +102,120 @@ export default function App() {
     e.target.value = '';
   };
 
-  const handleSave = useCallback(() => {
+  // --- Drag-and-Drop Handlers ---
+  // NOTE: getAsFile() returns null during dragenter (browser security).
+  // Use item.type (MIME) instead, which IS available during drag events.
+  const classifyDragItems = (e) => {
+    const items = e.dataTransfer?.items;
+    if (!items || items.length === 0) return 'supported'; // optimistic default
+    const UNSUPPORTED_MIME_PREFIXES = ['video/', 'audio/', 'image/'];
+    const UNSUPPORTED_MIME_EXACT = new Set(['application/zip', 'application/x-rar-compressed', 'application/pdf', 'application/msword', 'application/vnd.ms-excel']);
+    let anySupported = false;
+    let allUnsupported = true;
+    for (const item of items) {
+      if (item.kind !== 'file') continue;
+      const mime = item.type || '';
+      const isUnsupported = UNSUPPORTED_MIME_PREFIXES.some(p => mime.startsWith(p)) || UNSUPPORTED_MIME_EXACT.has(mime);
+      if (isUnsupported) { /* stays unsupported */ } else { anySupported = true; allUnsupported = false; }
+    }
+    // Only show red if ALL items are clearly unsupported; default to green for text/unknown
+    return allUnsupported && !anySupported ? 'unsupported' : 'supported';
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    dragCounterRef.current++;
+    if (dragCounterRef.current === 1) {
+      setDragState(classifyDragItems(e));
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = dragState === 'supported' ? 'copy' : 'none';
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    dragCounterRef.current--;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setDragState(null);
+    }
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setDragState(null);
+
+    const items = Array.from(e.dataTransfer.items).filter(i => i.kind === 'file');
+    if (!items.length) return;
+
+    let hasUnsupported = false;
+    let unsupportedLabel = '';
+
+    for (const item of items) {
+      const file = item.getAsFile();
+      if (!file) continue;
+
+      const cls = classifyFile(file.name);
+      if (!cls.supported) {
+        hasUnsupported = true;
+        unsupportedLabel = cls.label;
+        continue;
+      }
+
+      // getAsFileSystemHandle() returns a FileSystemFileHandle (supports createWritable)
+      // This is the key to in-place save — a plain File/Blob cannot write back to disk
+      let fsHandle = null;
+      if (typeof item.getAsFileSystemHandle === 'function') {
+        try { fsHandle = await item.getAsFileSystemHandle(); } catch { /* ok */ }
+      }
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const lang = detectLanguage(file.name);
+        addTab(file.name, lang, ev.target.result, fsHandle);
+        addRecentFile(file.name);
+      };
+      reader.readAsText(file);
+    }
+
+    if (hasUnsupported) {
+      clearTimeout(dragToastTimerRef.current);
+      setDragToast({
+        message: `${unsupportedLabel} cannot be opened in the notepad.`,
+        hint: 'Only text and code files (.txt, .js, .html, .py, etc.) are supported.',
+      });
+      dragToastTimerRef.current = setTimeout(() => setDragToast(null), 4000);
+    }
+  };
+
+  const handleSave = useCallback(async () => {
     if (!activeTab) return;
-    if (activeTab.filename.startsWith('Untitled')) {
+    if (activeTab.filename.startsWith('Untitled') && !activeTab.fileHandle) {
       setDialogConfig({ type: 'saveAs', inputName: activeTab.filename });
       return;
     }
+
+    // Try in-place save via File System Access API (Chrome/Edge/Safari)
+    if (activeTab.fileHandle && typeof activeTab.fileHandle.createWritable === 'function') {
+      try {
+        const writable = await activeTab.fileHandle.createWritable();
+        await writable.write(activeTab.content);
+        await writable.close();
+        markSaved(activeTabId);
+        addRecentFile(activeTab.filename);
+        setActiveMenu(null);
+        return;
+      } catch (err) {
+        // Permission denied or API error — fall through to download
+        console.warn('In-place save failed, falling back to download:', err);
+      }
+    }
+
+    // Fallback: trigger download
     triggerDownload(activeTab.filename, activeTab.content);
     markSaved(activeTabId);
     addRecentFile(activeTab.filename);
@@ -230,8 +346,54 @@ export default function App() {
     <div
       className={`h-screen w-screen flex flex-col overflow-hidden ${isDark ? 'bg-[#1e1e1e] text-gray-100' : 'bg-[#f5f5f7] text-gray-900'}`}
       style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       <input type="file" ref={fileInputRef} onChange={handleOpen} className="hidden" accept={ACCEPTED_EXTENSIONS} />
+
+      {/* Drag-and-drop overlay */}
+      <DropOverlay
+        isVisible={!!dragState}
+        isSupported={dragState === 'supported'}
+        isDark={isDark}
+      />
+
+      {/* Drag rejection toast */}
+      {dragToast && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 28,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 10000,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
+            padding: '12px 18px',
+            borderRadius: 12,
+            background: isDark ? '#2d1a1a' : '#fff1f1',
+            border: '1.5px solid #ef4444',
+            boxShadow: '0 4px 24px rgba(239,68,68,0.18)',
+            maxWidth: 420,
+            animation: 'dropOverlayFadeIn 0.18s ease',
+            cursor: 'pointer',
+          }}
+          onClick={() => setDragToast(null)}
+          title="Click to dismiss"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+          </svg>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#ef4444' }}>{dragToast.message}</div>
+            <div style={{ fontSize: 12, marginTop: 2, color: isDark ? '#fca5a5' : '#b91c1c', opacity: 0.85 }}>{dragToast.hint}</div>
+          </div>
+        </div>
+      )}
 
       {!zenMode && (
         <TitleBar

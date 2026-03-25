@@ -19,6 +19,35 @@ export const languages = [
 // File extensions accepted by the file input
 export const ACCEPTED_EXTENSIONS = languages.map(l => l.ext).join(',');
 
+// Set of accepted extensions for fast lookup
+export const ACCEPTED_EXT_SET = new Set(languages.map(l => l.ext.toLowerCase()));
+
+// Categories of unsupported files with friendly labels
+export const UNSUPPORTED_CATEGORIES = {
+    video:   { exts: ['.mp4','.mov','.avi','.mkv','.webm','.flv','.wmv'], label: 'Video files' },
+    audio:   { exts: ['.mp3','.wav','.ogg','.flac','.aac','.m4a','.wma'], label: 'Audio files' },
+    image:   { exts: ['.png','.jpg','.jpeg','.gif','.bmp','.webp','.svg','.ico','.tiff'], label: 'Image files' },
+    archive: { exts: ['.zip','.tar','.gz','.rar','.7z','.bz2','.xz'], label: 'Archive files' },
+    binary:  { exts: ['.exe','.dll','.so','.bin','.dmg','.pkg','.deb','.apk','.pdf','.docx','.xlsx','.pptx'], label: 'Binary/document files' },
+};
+
+/**
+ * Returns { supported: true } for accepted text/code files, or
+ * { supported: false, category: 'video'|'audio'|... , label: 'Video files' } for known unsupported types,
+ * or { supported: false, category: 'unknown', label: 'Unknown file type' }.
+ */
+export function classifyFile(filename) {
+    if (!filename) return { supported: false, category: 'unknown', label: 'Unknown file type' };
+    const ext = filename.includes('.')
+        ? filename.substring(filename.lastIndexOf('.')).toLowerCase()
+        : '';
+    if (ACCEPTED_EXT_SET.has(ext)) return { supported: true };
+    for (const [cat, info] of Object.entries(UNSUPPORTED_CATEGORIES)) {
+        if (info.exts.includes(ext)) return { supported: false, category: cat, label: info.label };
+    }
+    return { supported: false, category: 'unknown', label: 'Unknown file type' };
+}
+
 // Default tab factory
 export const createTab = (filename = 'Untitled 1.txt', language = 'plaintext', content = '') => ({
     id: Date.now().toString(),

@@ -74,12 +74,20 @@ export function useWorkspace() {
         return `Untitled ${i}.txt`;
     };
 
-    const addTab = (filename, language = 'plaintext', content = '') => {
-        const newTab = createTab(filename || getNextUntitledFilename(), language, content);
+    const addTab = (filename, language = 'plaintext', content = '', fileHandle = null) => {
+        const newTab = {
+            ...createTab(filename || getNextUntitledFilename(), language, content),
+            fileHandle, // File object from drag-and-drop (null for regular opens)
+        };
         savedContentRef.current[newTab.id] = content;
         setTabs(prev => [...prev, newTab]);
         setActiveTabId(newTab.id);
         return newTab.id;
+    };
+
+    // Update fileHandle after a successful write-back (e.g. after File System Access API permission)
+    const setFileHandle = (id, handle) => {
+        setTabs(prev => prev.map(t => t.id === id ? { ...t, fileHandle: handle } : t));
     };
 
     const closeTab = (id) => {
@@ -180,7 +188,7 @@ export function useWorkspace() {
         theme, toggleTheme,
         activeTabIdRef, tabsRef,
         addTab, closeTab, closeOtherTabs, closeAllTabs,
-        renameTab, updateActiveTab, markSaved,
+        renameTab, updateActiveTab, markSaved, setFileHandle,
         getNextUntitledFilename, detectLanguage,
         reorderTabs, recentFiles, addRecentFile,
         sidebarOpen, setSidebarOpen,
