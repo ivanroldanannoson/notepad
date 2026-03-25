@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { STORAGE_KEYS, createTab, languages } from '../constants/languages';
+import { saveRecentEntry, getAllRecentEntries, deleteRecentEntry } from '../utils/db';
 
 /**
  * Custom hook that manages all tab and theme state with localStorage persistence.
@@ -172,13 +173,60 @@ export function useWorkspace() {
         } catch { return []; }
     });
 
-    const addRecentFile = (filename) => {
+    // Content cache for recent files so they can be restored after tab close
+    const [recentContents, setRecentContents] = useState({});
+    const [recentHandles, setRecentHandles] = useState({});
+
+    // Effect to sync recent files from IndexedDB on mount
+    useEffect(() => {
+        const sync = async () => {
+            try {
+                const entries = await getAllRecentEntries();
+                if (entries.length > 0) {
+                    setRecentFiles(entries.map(e => e.filename));
+                    const contents = {};
+                    const handles = {};
+                    entries.forEach(e => {
+                        contents[e.filename] = e.content;
+                        handles[e.filename] = e.handle;
+                    });
+                    setRecentContents(contents);
+                    setRecentHandles(handles);
+                }
+            } catch (err) { console.error('Failed to sync recents from IDB:', err); }
+        };
+        sync();
+    }, []);
+
+    const addRecentFile = (filename, content, handle = null) => {
         setRecentFiles(prev => {
             const filtered = prev.filter(f => f !== filename);
             const updated = [filename, ...filtered].slice(0, 10);
             localStorage.setItem('notepad_recent_files', JSON.stringify(updated));
             return updated;
         });
+
+        // Persist to IndexedDB (supports handles)
+        saveRecentEntry(filename, content, handle).catch(console.error);
+
+        // Also update local state for immediate UI feedback
+        if (content !== undefined && content !== null) {
+            setRecentContents(prev => ({ ...prev, [filename]: content }));
+        }
+        if (handle) {
+            setRecentHandles(prev => ({ ...prev, [filename]: handle }));
+        }
+    };
+
+    const removeRecentFile = async (filename) => {
+        setRecentFiles(prev => {
+            const updated = prev.filter(f => f !== filename);
+            localStorage.setItem('notepad_recent_files', JSON.stringify(updated));
+            return updated;
+        });
+        await deleteRecentEntry(filename);
+        setRecentContents(prev => { const n = { ...prev }; delete n[filename]; return n; });
+        setRecentHandles(prev => { const n = { ...prev }; delete n[filename]; return n; });
     };
 
     return {
@@ -190,7 +238,7 @@ export function useWorkspace() {
         addTab, closeTab, closeOtherTabs, closeAllTabs,
         renameTab, updateActiveTab, markSaved, setFileHandle,
         getNextUntitledFilename, detectLanguage,
-        reorderTabs, recentFiles, addRecentFile,
+        reorderTabs, recentFiles, recentContents, recentHandles, addRecentFile, removeRecentFile,
         sidebarOpen, setSidebarOpen,
         zenMode, setZenMode,
         autoSave,

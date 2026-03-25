@@ -36,7 +36,7 @@ export default function App() {
     activeTabIdRef, tabsRef,
     addTab, closeTab, closeOtherTabs, closeAllTabs,
     renameTab, updateActiveTab, markSaved, setFileHandle, detectLanguage,
-    reorderTabs, recentFiles, addRecentFile,
+    reorderTabs, recentFiles, recentContents, recentHandles, addRecentFile, removeRecentFile,
     sidebarOpen, setSidebarOpen,
     zenMode, setZenMode,
     autoSave,
@@ -95,7 +95,7 @@ export default function App() {
     reader.onload = (ev) => {
       const lang = detectLanguage(file.name);
       addTab(file.name, lang, ev.target.result);
-      addRecentFile(file.name);
+      addRecentFile(file.name, ev.target.result);
     };
     reader.readAsText(file);
     setActiveMenu(null);
@@ -177,7 +177,7 @@ export default function App() {
       reader.onload = (ev) => {
         const lang = detectLanguage(file.name);
         addTab(file.name, lang, ev.target.result, fsHandle);
-        addRecentFile(file.name);
+        addRecentFile(file.name, ev.target.result, fsHandle);
       };
       reader.readAsText(file);
     }
@@ -206,7 +206,7 @@ export default function App() {
         await writable.write(activeTab.content);
         await writable.close();
         markSaved(activeTabId);
-        addRecentFile(activeTab.filename);
+        addRecentFile(activeTab.filename, activeTab.content, activeTab.fileHandle);
         setActiveMenu(null);
         return;
       } catch (err) {
@@ -218,7 +218,7 @@ export default function App() {
     // Fallback: trigger download
     triggerDownload(activeTab.filename, activeTab.content);
     markSaved(activeTabId);
-    addRecentFile(activeTab.filename);
+    addRecentFile(activeTab.filename, activeTab.content, activeTab.fileHandle);
     setActiveMenu(null);
   }, [activeTab, activeTabId, markSaved, addRecentFile]);
 
@@ -243,17 +243,37 @@ export default function App() {
     updateActiveTab({ filename: finalName });
     triggerDownload(finalName, activeTab.content);
     markSaved(activeTabId);
-    addRecentFile(finalName);
+    addRecentFile(finalName, activeTab.content, activeTab.fileHandle);
     setDialogConfig(null);
   };
 
   const handleNewTab = () => { addTab(); setActiveMenu(null); };
 
-  const handleOpenRecent = (filename) => {
+  const handleOpenRecent = async (filename) => {
     const existing = tabs.find(t => t.filename === filename);
     if (existing) { setActiveTabId(existing.id); setActiveMenu(null); return; }
+
+    const handle = recentHandles?.[filename];
+    if (handle) {
+      try {
+        // Verify existence by trying to get the file
+        const file = await handle.getFile();
+        const content = await file.text();
+        const lang = detectLanguage(filename);
+        addTab(filename, lang, content, handle);
+        setActiveMenu(null);
+        return;
+      } catch (err) {
+        console.warn('Recent file missing or inaccessible:', err);
+        // If file is gone, ask user before restoring from cache
+        const proceed = window.confirm(`The original file "${filename}" was moved or deleted from your drive.\n\nRestore from browser cache anyway?`);
+        if (!proceed) return;
+      }
+    }
+
     const lang = detectLanguage(filename);
-    addTab(filename, lang, '');
+    const content = recentContents?.[filename] ?? '';
+    addTab(filename, lang, content);
     setActiveMenu(null);
   };
 
