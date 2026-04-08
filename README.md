@@ -20,6 +20,17 @@ Notepad IDE offers a professional-grade workspace with **vibrant themes**, **smo
 - **Smart Code Formatting**: Built-in support for Prettier, JS-Beautify, and SQL-Formatter. Quick format with `⇧⌥F`.
 - **Advanced Language Detection**: Automatically detects language based on file extension or content. Support for 20+ languages.
 - **Professional Export**: Export your code as a high-quality **Image** or a text-only **PDF** for documentation and sharing.
+- **Drag & Drop Files**: Drop text and code files directly into the editor to open them instantly.
+
+## 📱 Mobile Responsive
+
+Notepad IDE is fully responsive and works great on phones and tablets:
+
+- **Hamburger Menu**: All menu options (File, Edit, View, Language, Help) collapse into a touch-friendly slide-out menu on mobile.
+- **Compact Tabs**: Tabs automatically resize to fit smaller screens with smooth horizontal scrolling.
+- **Overlay Sidebar**: The explorer opens as a full overlay with backdrop on mobile, auto-closing after file selection.
+- **Adaptive UI**: Status bar, breadcrumbs, and overlays (Settings, Command Palette, Diff View) adapt to any screen size.
+- **Safe Area Support**: Proper handling of iOS notch and home bar insets.
 
 ## ⌨️ Essential Shortcuts
 
@@ -51,6 +62,23 @@ Notepad IDE is a client-side application. We do not have servers, and **we do no
 - **Editor Core**: [Ace Editor](https://ace.c9.io/)
 - **Icons**: Lucide React
 - **Deployment**: Automated GitHub Actions to `gh-pages`.
+
+## 🚀 Getting Started
+
+```bash
+# Clone the repo
+git clone https://github.com/ivanroldanannoson/notepad.git
+cd notepad
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+```
 
 ## 📜 License
 
