@@ -5,7 +5,7 @@ export default function Breadcrumbs({ activeTab, isDark }) {
     if (!activeTab) return null;
 
     return (
-        <div className={`h-8 flex items-center px-4 gap-2 shrink-0 text-[12px] border-b ${isDark ? 'bg-[#1e1e1e] border-[#3c3c3c] text-gray-400' : 'bg-white border-gray-100 text-gray-500'
+        <div className={`h-8 hidden sm:flex items-center px-4 gap-2 shrink-0 text-[12px] border-b ${isDark ? 'bg-[#1e1e1e] border-[#3c3c3c] text-gray-400' : 'bg-white border-gray-100 text-gray-500'
             }`}>
             <FileText size={12} className={isDark ? 'text-blue-400' : 'text-blue-500'} />
             <span className="hover:underline cursor-pointer">src</span>

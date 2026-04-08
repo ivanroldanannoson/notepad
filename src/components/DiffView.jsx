@@ -18,9 +18,9 @@ export default function DiffView({ isOpen, onClose, tabs, isDark }) {
     const maxLines = Math.max(leftLines.length, rightLines.length);
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200] backdrop-blur-sm p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200] backdrop-blur-sm p-2 sm:p-4" onClick={onClose}>
             <div
-                className={`w-full max-w-5xl h-[80vh] rounded-2xl overflow-hidden flex flex-col border ${isDark ? 'bg-[#1e1e1e] border-white/10' : 'bg-white border-gray-200 shadow-2xl'
+                className={`w-full max-w-5xl h-[90vh] sm:h-[80vh] rounded-2xl overflow-hidden flex flex-col border ${isDark ? 'bg-[#1e1e1e] border-white/10' : 'bg-white border-gray-200 shadow-2xl'
                     }`}
                 onClick={(e) => e.stopPropagation()}
             >
@@ -37,7 +37,7 @@ export default function DiffView({ isOpen, onClose, tabs, isDark }) {
                 </div>
 
                 {/* Tab Selectors */}
-                <div className={`flex border-b shrink-0 ${isDark ? 'border-[#3c3c3c]' : 'border-gray-100'}`}>
+                <div className={`flex flex-col sm:flex-row border-b shrink-0 ${isDark ? 'border-[#3c3c3c]' : 'border-gray-100'}`}>
                     <div className="flex-1 px-4 py-2 flex items-center gap-2">
                         <span className={`text-[11px] font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Left:</span>
                         <select
@@ -62,7 +62,7 @@ export default function DiffView({ isOpen, onClose, tabs, isDark }) {
                 </div>
 
                 {/* Diff Content */}
-                <div className="flex-1 flex overflow-hidden">
+                <div className="flex-1 flex flex-col sm:flex-row overflow-hidden">
                     {[{ lines: leftLines, label: 'left' }, { lines: rightLines, label: 'right' }].map((side, sideIdx) => (
                         <React.Fragment key={side.label}>
                             {sideIdx === 1 && <div className={`w-px ${isDark ? 'bg-[#3c3c3c]' : 'bg-gray-200'}`} />}

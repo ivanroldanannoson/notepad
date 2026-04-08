@@ -22,9 +22,9 @@ export default function GlobalSearch({ isOpen, onClose, tabs, onSelectResult, is
     }).filter(Boolean) : [];
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200] backdrop-blur-sm p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200] backdrop-blur-sm p-2 sm:p-4" onClick={onClose}>
             <div
-                className={`w-full max-w-2xl rounded-2xl overflow-hidden flex flex-col border max-h-[80vh] ${isDark ? 'bg-[#2a2a2e] border-white/10' : 'bg-white border-gray-200 shadow-2xl'
+                className={`w-full max-w-2xl rounded-2xl overflow-hidden flex flex-col border max-h-[90vh] sm:max-h-[80vh] ${isDark ? 'bg-[#2a2a2e] border-white/10' : 'bg-white border-gray-200 shadow-2xl'
                     }`}
                 onClick={(e) => e.stopPropagation()}
             >
@@ -36,7 +36,7 @@ export default function GlobalSearch({ isOpen, onClose, tabs, onSelectResult, is
                         placeholder="Search across all open files..."
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        className="bg-transparent border-none outline-none text-[14px] flex-1 font-medium"
+                        className="bg-transparent border-none outline-none text-[14px] flex-1 font-medium min-w-0"
                     />
                     <button onClick={onClose} className="p-1 hover:bg-black/5 rounded">
                         <X size={18} className="text-gray-400" />

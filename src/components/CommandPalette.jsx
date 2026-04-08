@@ -52,9 +52,9 @@ export default function CommandPalette({ isOpen, onClose, onExecute, isDark }) {
     };
 
     return (
-        <div className="fixed inset-0 z-[200] flex justify-center pt-[15vh]" onClick={onClose}>
+        <div className="fixed inset-0 z-[200] flex justify-center pt-[8vh] sm:pt-[15vh] px-3 sm:px-0" onClick={onClose}>
             <div
-                className={`w-[520px] max-h-[400px] rounded-xl overflow-hidden flex flex-col shadow-2xl border ${isDark ? 'bg-[#252526] border-[#3c3c3c] shadow-black/60' : 'bg-white border-gray-200 shadow-gray-300/50'
+                className={`w-full sm:w-[520px] max-h-[70vh] sm:max-h-[400px] rounded-xl overflow-hidden flex flex-col shadow-2xl border ${isDark ? 'bg-[#252526] border-[#3c3c3c] shadow-black/60' : 'bg-white border-gray-200 shadow-gray-300/50'
                     }`}
                 onClick={(e) => e.stopPropagation()}
             >

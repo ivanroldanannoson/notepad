@@ -9,6 +9,12 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+
+  /* iOS safe area insets */
+  --sai-top: env(safe-area-inset-top, 0px);
+  --sai-bottom: env(safe-area-inset-bottom, 0px);
+  --sai-left: env(safe-area-inset-left, 0px);
+  --sai-right: env(safe-area-inset-right, 0px);
 }
 
 html,
@@ -17,7 +23,11 @@ body {
   padding: 0;
   width: 100vw;
   height: 100vh;
+  /* Use dvh for mobile browsers that hide/show address bar */
+  height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 * {
@@ -37,4 +47,67 @@ body {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* ── Mobile Animations ───────────────────────────────── */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ── Safe Area Padding ───────────────────────────────── */
+
+.pb-safe {
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+}
+
+/* ── Mobile Touch Improvements ───────────────────────── */
+
+@media (max-width: 768px) {
+  /* Prevent text selection on UI elements during touch */
+  button, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Increase touch targets for small interactive elements */
+  .ace_scrollbar {
+    width: 10px !important;
+  }
+
+  /* Better mobile scrolling in overlays */
+  .overscroll-contain {
+    overscroll-behavior: contain;
+  }
+}
+
+/* ── Mobile viewport height fix ──────────────────────── */
+
+@supports (height: 100dvh) {
+  html, body {
+    height: 100dvh;
+  }
 }

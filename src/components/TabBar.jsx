@@ -89,7 +89,7 @@ export default function TabBar({ tabs, activeTabId, setActiveTabId, closeTab, cl
 
     return (
         <>
-            <div className={`h-10 flex items-end px-3 gap-1 overflow-x-auto no-scrollbar shrink-0 select-none ${isDark ? 'bg-[#252526]' : 'bg-[#f0f0f0]'
+            <div className={`h-10 flex items-end px-1.5 sm:px-3 gap-0.5 sm:gap-1 overflow-x-auto no-scrollbar shrink-0 select-none ${isDark ? 'bg-[#252526]' : 'bg-[#f0f0f0]'
                 }`}>
                 {tabs.map(tab => {
                     const isActive = activeTabId === tab.id;
@@ -104,7 +104,7 @@ export default function TabBar({ tabs, activeTabId, setActiveTabId, closeTab, cl
                             onClick={() => { if (!dragState.dragging) setActiveTabId(tab.id); }}
                             onContextMenu={(e) => handleContextMenu(e, tab.id)}
                             onDoubleClick={() => startRename(tab)}
-                            className={`group flex items-center gap-2 h-[34px] px-3.5 rounded-t-lg cursor-pointer transition-all duration-150 min-w-[120px] max-w-[200px] text-[12px] font-medium border-t border-x ${isDragging ? 'opacity-40' : ''
+                            className={`group flex items-center gap-1.5 sm:gap-2 h-[34px] px-2 sm:px-3.5 rounded-t-lg cursor-pointer transition-all duration-150 min-w-[80px] sm:min-w-[120px] max-w-[160px] sm:max-w-[200px] text-[11px] sm:text-[12px] font-medium border-t border-x ${isDragging ? 'opacity-40' : ''
                                 } ${isDragOver ? (isDark ? 'border-l-2 border-l-blue-400' : 'border-l-2 border-l-blue-500') : ''
                                 } ${isActive
                                     ? (isDark

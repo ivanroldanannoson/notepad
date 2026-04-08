@@ -37,7 +37,7 @@ export default function ShortcutSheet({ isOpen, onClose, isDark }) {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200] backdrop-blur-sm p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200] backdrop-blur-sm p-2 sm:p-4" onClick={onClose}>
             <div
                 className={`w-full max-w-lg rounded-2xl overflow-hidden flex flex-col border ${isDark ? 'bg-[#2a2a2e] border-white/10' : 'bg-white border-gray-200 shadow-2xl'
                     }`}

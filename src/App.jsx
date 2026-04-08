@@ -364,7 +364,7 @@ export default function App() {
 
   return (
     <div
-      className={`h-screen w-screen flex flex-col overflow-hidden ${isDark ? 'bg-[#1e1e1e] text-gray-100' : 'bg-[#f5f5f7] text-gray-900'}`}
+      className={`h-screen h-[100dvh] w-screen flex flex-col overflow-hidden ${isDark ? 'bg-[#1e1e1e] text-gray-100' : 'bg-[#f5f5f7] text-gray-900'}`}
       style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
@@ -398,6 +398,7 @@ export default function App() {
             border: '1.5px solid #ef4444',
             boxShadow: '0 4px 24px rgba(239,68,68,0.18)',
             maxWidth: 420,
+            width: 'calc(100% - 32px)',
             animation: 'dropOverlayFadeIn 0.18s ease',
             cursor: 'pointer',
           }}

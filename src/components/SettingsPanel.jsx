@@ -14,7 +14,7 @@ export default function SettingsPanel({ isOpen, onClose, settings, updateSetting
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200] backdrop-blur-sm p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200] backdrop-blur-sm p-2 sm:p-4" onClick={onClose}>
             <div
                 className={`w-full max-w-md rounded-2xl overflow-hidden flex flex-col border ${isDark ? 'bg-[#2a2a2e] border-white/10' : 'bg-white border-gray-200 shadow-2xl'
                     }`}
@@ -29,7 +29,7 @@ export default function SettingsPanel({ isOpen, onClose, settings, updateSetting
                 </div>
 
                 <div
-                    className="p-5 space-y-5 max-h-[60vh] overflow-y-auto transition-all duration-200"
+                    className="p-4 sm:p-5 space-y-4 sm:space-y-5 max-h-[70vh] sm:max-h-[60vh] overflow-y-auto transition-all duration-200"
                     style={{
                         fontFamily: settings.fontFamily,
                         fontSize: `${Math.max(12, settings.fontSize * 0.9)}px`
